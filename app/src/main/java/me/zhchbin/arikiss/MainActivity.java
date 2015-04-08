@@ -7,6 +7,7 @@ import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.view.View;
@@ -38,14 +39,17 @@ public class MainActivity extends ActionBarActivity {
             final WifiManager wifiManager = (WifiManager) context.getSystemService(Context.WIFI_SERVICE);
             final WifiInfo connectionInfo = wifiManager.getConnectionInfo();
             if (connectionInfo != null) {
-                mSSIDEditText.setText(connectionInfo.getSSID());
+                String ssid = connectionInfo.getSSID();
+                if (Build.VERSION.SDK_INT >= 17 && ssid.startsWith("\"") && ssid.endsWith("\""))
+                    ssid = ssid.replaceAll("^\"|\"$", "");
+                mSSIDEditText.setText(ssid);
                 mSSIDEditText.setEnabled(false);
             }
         }
     }
 
     public void onConnectBtnClick(View view) throws SocketException {
-        String ssid = mSSIDEditText.getText().toString().replaceAll("^\"|\"$", "");
+        String ssid = mSSIDEditText.getText().toString();
         String password = mPasswordEditText.getText().toString();
         if (ssid.isEmpty() || password.isEmpty()) {
             Context context = getApplicationContext();
