@@ -1,4 +1,4 @@
-package me.zhchbin.arikiss;
+package me.zhchbin.airkiss;
 
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -11,15 +11,12 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
-
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.net.SocketException;
 import java.util.Random;
 
 public class MainActivity extends ActionBarActivity {

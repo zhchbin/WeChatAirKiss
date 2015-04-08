@@ -1,4 +1,4 @@
-package me.zhchbin.arikiss;
+package me.zhchbin.airkiss;
 
 import android.app.Application;
 import android.test.ApplicationTestCase;
