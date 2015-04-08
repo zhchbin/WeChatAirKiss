@@ -166,7 +166,7 @@ public class MainActivity extends ActionBarActivity {
             }
 
 
-            char randomChar = (char)(new Random().nextInt(0xFF));
+            char randomChar = (char)(new Random().nextInt(0x7F));
             String ssid = params[0];
             String password = params[1];
             int times = 5;
