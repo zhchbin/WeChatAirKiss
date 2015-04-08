@@ -14,9 +14,12 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
+import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.Random;
 
 public class MainActivity extends ActionBarActivity {
@@ -65,10 +68,16 @@ public class MainActivity extends ActionBarActivity {
     private class AirKissTask extends AsyncTask<String, Void, Void> implements DialogInterface.OnDismissListener {
         private static final int PORT = 10000;
         private final byte DUMMY_DATA[] = new byte[1500];
+        private static final int REPLY_BYTE_CONFIRM_TIMES = 5;
 
         private ProgressDialog mDialog;
         private Context mContext;
         private DatagramSocket mSocket;
+
+        // Random char should be in range [0, 127).
+        private char mRandomChar = (char)(new Random().nextInt(0x7F));
+
+        private volatile boolean mDone = false;
 
         public AirKissTask(ActionBarActivity activity) {
             mContext = activity;
@@ -80,6 +89,44 @@ public class MainActivity extends ActionBarActivity {
         protected void onPreExecute() {
             this.mDialog.setMessage("Connecting :)");
             this.mDialog.show();
+
+            new Thread(new Runnable() {
+                public void run() {
+                    byte[] buffer = new byte[15000];
+                    try {
+                        DatagramSocket udpServerSocket = new DatagramSocket(PORT);
+                        DatagramPacket packet = new DatagramPacket(buffer, buffer.length);
+                        int replyByteCounter = 0;
+                        udpServerSocket.setSoTimeout(1000);
+                        while (true) {
+                            if (getStatus() == Status.FINISHED)
+                                break;
+
+                            try {
+                                udpServerSocket.receive(packet);
+                                byte receivedData[] = packet.getData();
+                                for (byte b : receivedData) {
+                                    if (b == mRandomChar)
+                                        replyByteCounter++;
+                                }
+
+                                if (replyByteCounter > REPLY_BYTE_CONFIRM_TIMES) {
+                                    mDone = true;
+                                    break;
+                                }
+                            } catch (SocketTimeoutException e) {
+                                e.printStackTrace();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+
+                        udpServerSocket.close();
+                    } catch (SocketException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }).start();
         }
 
         private void sendPacketAndSleep(int length) {
@@ -168,7 +215,6 @@ public class MainActivity extends ActionBarActivity {
                 e.printStackTrace();
             }
 
-            char randomChar = (char)(new Random().nextInt(0x7F));
             String ssid = params[0];
             String password = params[1];
             int times = 5;
@@ -177,14 +223,17 @@ public class MainActivity extends ActionBarActivity {
                 sendMagicCode(ssid, password);
 
                 for (int i = 0; i < 15; ++i) {
-                    if (isCancelled())
+                    if (isCancelled() || mDone)
                         return null;
 
                     sendPrefixCode(password);
-                    String data = password + randomChar + ssid;
+                    String data = password + mRandomChar + ssid;
                     int index;
                     byte content[] = new byte[4];
                     for (index = 0; index < data.length() / 4; ++index) {
+                        if (mDone)
+                            return null;
+
                         System.arraycopy(data.getBytes(), index * 4, content, 0, content.length);
                         sendSequence(index, content);
                     }
@@ -201,15 +250,30 @@ public class MainActivity extends ActionBarActivity {
         }
 
         @Override
+        protected void onCancelled(Void params) {
+            Toast.makeText(getApplicationContext(), "Air Kiss Cancelled.", Toast.LENGTH_LONG).show();
+        }
+
+        @Override
         protected void onPostExecute(Void params) {
             if (mDialog.isShowing()) {
                 mDialog.dismiss();
             }
+
+            String result;
+            if (mDone) {
+                result = "Air Kiss Successfully Done!";
+            } else {
+                result = "Air Kiss Timeout.";
+            }
+            Toast.makeText(getApplicationContext(), result, Toast.LENGTH_LONG).show();
         }
 
         @Override
         public void onDismiss(DialogInterface dialog) {
-            Toast.makeText(getApplicationContext(), "Connection canceled", Toast.LENGTH_SHORT).show();
+            if (mDone)
+                return;
+
             this.cancel(true);
         }
     }
