@@ -2,6 +2,7 @@ package me.zhchbin.arikiss;
 
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.wifi.WifiInfo;
@@ -10,6 +11,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
@@ -48,7 +50,7 @@ public class MainActivity extends ActionBarActivity {
         }
     }
 
-    public void onConnectBtnClick(View view) throws SocketException {
+    public void onConnectBtnClick(View view) {
         String ssid = mSSIDEditText.getText().toString();
         String password = mPasswordEditText.getText().toString();
         if (ssid.isEmpty() || password.isEmpty()) {
@@ -63,23 +65,24 @@ public class MainActivity extends ActionBarActivity {
         new AirKissTask(this).execute(ssid, password);
     }
 
-    private class AirKissTask extends AsyncTask<String, Void, Void> {
+    private class AirKissTask extends AsyncTask<String, Void, Void> implements DialogInterface.OnDismissListener {
         private static final int PORT = 10000;
         private final byte DUMMY_DATA[] = new byte[1500];
 
-        private ProgressDialog dialog;
-        private Context context;
+        private ProgressDialog mDialog;
+        private Context mContext;
         private DatagramSocket mSocket;
 
-        public AirKissTask(ActionBarActivity activity) throws SocketException {
-            context = activity;
-            dialog = new ProgressDialog(context);
+        public AirKissTask(ActionBarActivity activity) {
+            mContext = activity;
+            mDialog = new ProgressDialog(mContext);
+            mDialog.setOnDismissListener(this);
         }
 
         @Override
         protected void onPreExecute() {
-            this.dialog.setMessage("Connecting :)");
-            this.dialog.show();
+            this.mDialog.setMessage("Connecting :)");
+            this.mDialog.show();
         }
 
         private void sendPacketAndSleep(int length) {
@@ -115,7 +118,7 @@ public class MainActivity extends ActionBarActivity {
                     extract = (byte) ((extract & 0xFF) >>> 1);
                 }
             }
-            return (int) (crc & 0xFF);
+            return (crc & 0xFF);
         }
 
         protected int CRC8(String stringData) {
@@ -159,7 +162,6 @@ public class MainActivity extends ActionBarActivity {
                 sendPacketAndSleep(data[i] | 0x100);
         }
 
-
         @Override
         protected Void doInBackground(String... params) {
             try {
@@ -168,7 +170,6 @@ public class MainActivity extends ActionBarActivity {
             } catch (Exception e) {
                 e.printStackTrace();
             }
-
 
             char randomChar = (char)(new Random().nextInt(0x7F));
             String ssid = params[0];
@@ -179,6 +180,9 @@ public class MainActivity extends ActionBarActivity {
                 sendMagicCode(ssid, password);
 
                 for (int i = 0; i < 15; ++i) {
+                    if (isCancelled())
+                        return null;
+
                     sendPrefixCode(password);
                     String data = password + randomChar + ssid;
                     int index;
@@ -201,9 +205,15 @@ public class MainActivity extends ActionBarActivity {
 
         @Override
         protected void onPostExecute(Void params) {
-            if (dialog.isShowing()) {
-                dialog.dismiss();
+            if (mDialog.isShowing()) {
+                mDialog.dismiss();
             }
+        }
+
+        @Override
+        public void onDismiss(DialogInterface dialog) {
+            Toast.makeText(getApplicationContext(), "Connection canceled", Toast.LENGTH_SHORT).show();
+            this.cancel(true);
         }
     }
 }
