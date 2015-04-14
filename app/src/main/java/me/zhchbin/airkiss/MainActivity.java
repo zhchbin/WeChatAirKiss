@@ -173,6 +173,8 @@ public class MainActivity extends ActionBarActivity {
             int length = ssid.length() + password.length() + 1;
             int magicCode[] = new int[4];
             magicCode[0] = 0x00 | (length >>> 4 & 0xF);
+            if (magicCode[0] == 0)
+                magicCode[0] = 0x08;
             magicCode[1] = 0x10 | (length & 0xF);
             int crc8 = CRC8(ssid);
             magicCode[2] = 0x20 | (crc8 >>> 4 & 0xF);
